@@ -1,0 +1,194 @@
+class InternetCafeApp usingPlatform: platform = Value (
+| private actors = platform actors.
+  private Array = platform kernel Array.
+  private Vector = platform kernel Vector.
+  private TransferArray = platform kernel TransferArray.
+|)(
+
+    public class Customer new: newName room: room = (
+       | private name = newName.
+        private computerRoom = room.
+        private left ::= false.
+       |)(
+
+        public askComputer = (
+          ^ computerRoom <-: getComputer: name.
+        )
+
+        public leaveRoom: timeout resolver: resolver = (
+          left:: true.
+          (timeout = true)
+             ifTrue: [
+               ('-> Customer '+ name + ' left the room due to TIMEOUT')  println.
+             ]
+             ifFalse: [
+               ('-> Customer '+ name + ' worked and left the room')  println.
+             ].
+
+             ^ computerRoom <-: notifyCustomerDone: resolver.
+        )
+    )
+
+     public class InternetCafe new: capacity totalCustomers: totalCustomers = (
+       | private computers = Array new: capacity.
+         private totalCustomers = totalCustomers.
+         private counter ::= 0.
+         private pendingCustomers = Vector new: totalCustomers.
+       |
+       )(
+
+      public start: customerActor resolver: appResolver = (
+       | pResult computerId customerName str flagResolved |
+
+         pResult:: customerActor <-: askComputer.
+
+         pResult whenResolved:[:array |
+           customerName:: array at: 1.
+           computerId:: array at: 2.
+           str:: computerId asString.
+           (str = 'instance of Pair') (* can be an integer or a promise-resolver pair *)
+              ifTrue: [
+                ('There is no computer available for '+ customerName + ' - waiting ...') println.
+                  (* waiting timeout *)
+                  actors after: 500 do: [
+                    flagResolved = true (* indicates if the computerId promise has already been resolved, it avoids resolving the promise more than once *)
+                      ifFalse: [
+                        computerId resolver resolve: 0.
+                        (* remove the computerId pair because it has been resolved *)
+                        removePendingCustomerPromise: computerId.
+                      ].
+                  ].
+
+                  (computerId promise) whenResolved: [:id |
+                    flagResolved:: true.
+                       (id = 0)
+                       ifTrue: [
+                         customerActor <-: leaveRoom: true resolver: appResolver.
+                       ]
+                       ifFalse: [
+                        (* call start method again for the current actor, because the computerId promise has been resolved with an id, not with a timeout.
+                        Then the customer will get a computer to work. *)
+                         start: customerActor resolver: appResolver.
+                       ].
+                  ].
+              ]
+              ifFalse: [
+               ('Customer '+ customerName + ' has been assigned to computer ' + computerId)  println.
+               (* working timeout *)
+               actors after: 100 do: [
+                 freeComputer: computerId.
+                 resolvePendingPromise: computerId.
+                 (* customerActor <-: leaveRoom: false resolver: resolver. *)
+                (* ('-> Customer '+ customerName + ' worked and left the room')  println. *)
+                 notifyCustomerDone: appResolver.
+               ].
+              ].
+         ].
+     )
+
+      public getComputer: customer = (
+        | computerId ::= getAvailability.
+          waitingPromisePair ::= nil.
+          transferArray = TransferArray new: 2.
+        |
+
+        ((computerId notNil) and: (computerId > -1))
+        ifTrue: [
+          computers at: computerId put: customer.
+          transferArray at: 1 put: customer.
+          transferArray at: 2 put: computerId.
+        ].
+
+        (computerId = -1)
+        ifTrue: [
+            waitingPromisePair:: actors createPromisePair.
+            transferArray at: 1 put: customer.
+            transferArray at: 2 put: waitingPromisePair.
+            pendingCustomers append: transferArray.
+        ].
+
+        ^ transferArray
+      )
+
+       private getAvailability = (
+         | value |
+           computers doIndexes: [:i |
+             value:: computers at: i.
+             (value = nil)
+             ifTrue: [ ^ i ]
+           ].
+
+          ^ -1
+        )
+
+      public freeComputer: id = (
+        | cust |
+            cust:: computers at: id.
+            (' -- Computer '+ id + ' has been released by customer ' + cust)  println.
+            computers at: id put: nil.
+      )
+
+      public notifyCustomerDone: resolver = (
+        counter:: counter + 1.
+        counter = totalCustomers
+        ifTrue: [
+            resolver resolve: 0.
+            ^ true
+        ].
+
+        ^ false
+      )
+
+      public resolvePendingPromise: computerId = (
+        | flag ::= true. index ::= 0. |
+        pendingCustomers doIndexes:[:i |
+          | array |
+            flag
+            ifTrue:[
+              array:: pendingCustomers at: i.
+              array notNil
+              ifTrue:[
+                (array at: 2) resolver resolve: computerId.
+                flag:: false.
+                index:: i.
+              ].
+            ].
+        ].
+
+        index = 0
+        ifFalse:[
+          pendingCustomers at: index put: nil.
+        ].
+
+       )
+    )
+
+
+  public main: args = (
+     | completionPP cafeActor numberComputers numberCustomers customersNames |
+
+        '[INTERNET_CAFE] Starting' println.
+
+         completionPP:: actors createPromisePair.
+         numberComputers:: 3.
+         numberCustomers:: 5.
+         cafeActor:: (actors createActorFromValue: InternetCafe) <-: new: numberComputers totalCustomers: numberCustomers.
+
+         customersNames:: Array new: numberCustomers.
+         customersNames at: 1 put: 'Joe'.
+         customersNames at: 2 put: 'Marie'.
+         customersNames at: 3 put: 'Tom'.
+         customersNames at: 4 put: 'Alan'.
+         customersNames at: 5 put: 'Julia'.
+
+         customersNames doIndexes:[:i |
+           | customerActor |
+           customerActor:: (actors createActorFromValue: Customer) <-: new: (customersNames at: i) room: cafeActor.
+           cafeActor <-: start: customerActor resolver: completionPP resolver.
+         ].
+
+        ^ completionPP promise whenResolved: [:r7 |
+               '\n\n[INTERNET_CAFE] Ended' println. ].
+  )
+
+)

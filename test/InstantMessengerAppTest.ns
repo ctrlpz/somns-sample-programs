@@ -1,0 +1,83 @@
+class InstantMessengerAppTest usingPlatform: platform testFramework: minitest = Value (
+| private TestContext = minitest TestContext.
+  private AsyncTestContext = minitest AsyncTestContext.
+  private actors = platform actors.
+  private messengerApp = (platform system
+    loadModule: 'src/InstantMessengerApplication.ns' nextTo: self)
+      usingPlatform: platform.
+  private InstantMessenger = messengerApp InstantMessenger.
+|)(
+
+  public class MessengerTest = AsyncTestContext ()(
+
+    public testAsyncAddMessenger = (
+      | messenger1 messenger2 pMessenger1 pName1 pMessenger2 pName2 pp1 pp2 |
+      pp1:: actors createPromisePair.
+      pp2:: actors createPromisePair.
+
+      messenger1:: (actors createActorFromValue: InstantMessenger) <-: new: 'Joe' total: 2.
+      messenger2:: (actors createActorFromValue: InstantMessenger) <-: new: 'Marie' total: 2.
+
+      pMessenger1:: messenger1 <-: addMessenger: messenger2.
+      pMessenger2:: messenger2 <-: addMessenger: messenger1.
+
+      pMessenger1 whenResolved:[:farRefRemoteMessenger1 |
+          pName1:: farRefRemoteMessenger1 <-: name.
+          pName1 whenResolved:[: r |
+                    pp1 resolver resolve: r].
+      ].
+
+      pMessenger2 whenResolved:[:farRefRemoteMessenger2 |
+         pName2:: farRefRemoteMessenger2 <-: name.
+             pName2 whenResolved:[: r |
+                   pp2 resolver resolve: r ].
+      ].
+
+      ^ (assert: pp1 promise resolvedWith: 'Marie'),
+        (assert: pp2 promise resolvedWith: 'Joe')
+    )
+
+    public testAsyncSendMessage = (
+      | messenger1 messenger2 pDiscover1 pDiscover2 pp pName msg pSend |
+      pp:: actors createPromisePair.
+
+      messenger1:: (actors createActorFromValue: InstantMessenger) <-: new: 'Joe' total: 2.
+      messenger2:: (actors createActorFromValue: InstantMessenger) <-: new: 'Marie' total: 2.
+
+      pDiscover1:: messenger1 <-: addMessenger: messenger2.
+      pDiscover2:: messenger2 <-: addMessenger: messenger1.
+
+      pName:: pDiscover1 <-: name.
+      pName whenResolved:[:remoteName |
+        msg:: ('Hello ' + remoteName).
+        pSend:: messenger1 <-: sendMessage: remoteName contentMsg: msg.
+
+        pSend whenResolved:[: r |
+          pp resolver resolve: r ] ].
+
+      ^ assert: pp promise resolvedWith: #ok
+    )
+
+    public testAsyncChat = (
+      | messenger1 messenger2 p1 p2 array pw1 pw2 |
+      messenger1:: (actors createActorFromValue: InstantMessenger) <-: new: 'Joe' total: 2.
+      messenger2:: (actors createActorFromValue: InstantMessenger) <-: new: 'Marie' total: 2.
+
+      p1:: messenger1 <-: startChat: messenger2.
+      p2:: messenger2 <-: startChat: messenger1.
+
+      pw1:: p1 whenResolved:[: result |
+          result ifNotNil: [
+            assert: (result sender) equals:'Joe'.
+            assert: (result content) equals:'Hello Marie' ] ].
+      pw2:: p2 whenResolved:[: result |
+                result ifNotNil: [
+                  assert: (result sender) equals:'Marie'.
+                  assert: (result content) equals:'Hello Joe' ] ].
+
+      ^ pw1,
+        pw2
+
+    )
+  ) : ( TEST_CONTEXT = () )
+)
