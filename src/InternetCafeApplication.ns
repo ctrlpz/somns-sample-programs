@@ -78,8 +78,6 @@ class InternetCafeApp usingPlatform: platform = Value (
                actors after: 100 do: [
                  freeComputer: computerId.
                  resolvePendingPromise: computerId.
-                 (* customerActor <-: leaveRoom: false resolver: resolver. *)
-                (* ('-> Customer '+ customerName + ' worked and left the room')  println. *)
                  notifyCustomerDone: appResolver.
                ].
               ].

@@ -21,7 +21,7 @@ public class MusicPlayer new: name songlist: list = (
             | i |
              i:: 1.
              (* async loop for sending the songs to the remotePlayer *)
-             (actors async: getLibraryList do: [:song |
+             (actors async: getLibraryList do:[:song |
              | p songPromise promisefinalMsg |
               p:: actors createPromisePair.
               songPromise:: session <-: receiveSong: song index: i.

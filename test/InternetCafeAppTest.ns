@@ -19,7 +19,6 @@ class InternetCafeAppTest usingPlatform: platform testFramework: minitest = Valu
              numberCustomers:: 1.
 
              cafeActor:: (actors createActorFromValue: InternetCafe) <-: new: numberComputers totalCustomers: numberCustomers.
-
              pCustomer:: (actors createActorFromValue: Customer) <-: new: 'Paul' room: cafeActor.
 
              pResult:: pCustomer <-: askComputer.
@@ -62,7 +61,6 @@ class InternetCafeAppTest usingPlatform: platform testFramework: minitest = Valu
               ].
             ].
         )
-
 
   ) : (
        TEST_CONTEXT = () )

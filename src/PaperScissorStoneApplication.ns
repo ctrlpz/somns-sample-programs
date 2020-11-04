@@ -55,21 +55,21 @@ public class Peer new: id name: name resolver: resolver iterations: size = (
             ifFalse:[
               (* check for new join requests *)
               (requests notNil)
-                  ifTrue: [
-                    playerActors:: TransferArray new: (peerActors size + requests size).
+              ifTrue: [
+                playerActors:: TransferArray new: (peerActors size + requests size).
 
-                    peerActors doIndexes:[: i |
-                      playerActors at: i put: (peerActors at: i).
-                    ].
+                peerActors doIndexes:[: i |
+                  playerActors at: i put: (peerActors at: i).
+                ].
 
-                    requests doIndexes:[: i |
-                     playerActors at: (peerActors size + i) put: (requests at: i).
-                    ].
+                requests doIndexes:[: i |
+                 playerActors at: (peerActors size + i) put: (requests at: i).
+                ].
 
-                    ('Total players: '+ playerActors size + ' - Added '+ requests size +' peers to the game.') println.
+                ('Total players: '+ playerActors size + ' - Added '+ requests size +' peers to the game.') println.
 
-                    requests:: nil. (* reset the array *)
-                  ].
+                requests:: nil. (* reset the array *)
+              ].
             startGame: playerActors gameNumber: counter.
           ].
         ].
